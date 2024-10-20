@@ -37,15 +37,27 @@ def redact_phones(text):
     phone_pattern = re.compile(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}')
     return phone_pattern.sub("█" * 12, text)
 
-# Function to redact addresses
-def redact_addresses(doc):
+def redact_addresses(text):
+    # Apply SpaCy NER for GPE, LOC, FAC (geopolitical entities, locations, facilities)
+    doc = nlp(text)
     redacted_text = []
     for token in doc:
         if token.ent_type_ in ["GPE", "LOC", "FAC"]:
             redacted_text.append("█" * len(token.text))
         else:
             redacted_text.append(token.text)
-    return " ".join(redacted_text)
+    text = " ".join(redacted_text)
+
+    # Regex patterns to capture different parts of an address
+    street_pattern = r'\d{1,5}\s+\w+(\s\w+){0,2}\s+(Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr)\b'
+    zip_code_pattern = r'\b\d{5}(?:-\d{4})?\b'  # Matches ZIP code (e.g., 62704 or 62704-1234)
+
+    # Apply the regex patterns
+    text = re.sub(street_pattern, '█' * 20, text)  # Redact street address
+    text = re.sub(zip_code_pattern, '█' * 5, text)  # Redact ZIP code
+
+    return text
+
 
 # Function to redact concepts based on keywords
 def redact_concept(text, concept_keywords):
@@ -53,6 +65,7 @@ def redact_concept(text, concept_keywords):
         text = re.sub(rf'\b{keyword}\b', '█' * len(keyword), text, flags=re.IGNORECASE)
     return text
 
+# Function to process and redact file
 # Function to process and redact file
 def process_file(input_file, output_dir, redact_flags, concepts):
     with open(input_file, 'r') as f:
@@ -68,7 +81,7 @@ def process_file(input_file, output_dir, redact_flags, concepts):
     if redact_flags['phones']:
         text = redact_phones(text)
     if redact_flags['address']:
-        text = redact_addresses(nlp(text))
+        text = redact_addresses(text)  # Using the updated redact_addresses function
     
     if concepts:
         text = redact_concept(text, concepts)
@@ -82,6 +95,7 @@ def process_file(input_file, output_dir, redact_flags, concepts):
 
     with open(output_file, 'w') as f:
         f.write(text)
+
 
 # Argument parser for command-line flags
 def main():
