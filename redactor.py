@@ -12,14 +12,19 @@ filterwarnings('ignore')
 # Load the transformer-based SpaCy model
 nlp = spacy.load('en_core_web_trf')
 
-# Function to redact names
+# Function to redact names and print identified names
 def redact_names(doc):
     redacted_text = []
+    identified_names = []  # List to collect identified names
     for token in doc:
         if token.ent_type_ == "PERSON":
             redacted_text.append("█" * len(token.text))  # Replace with block character
+            identified_names.append(token.text)  # Collect identified names
         else:
             redacted_text.append(token.text)
+    # Print all identified names
+    if identified_names:
+        print(f"Identified names: {', '.join(identified_names)}")
     return " ".join(redacted_text)
 
 # Function to redact dates
@@ -37,15 +42,23 @@ def redact_phones(text):
     phone_pattern = re.compile(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}')
     return phone_pattern.sub("█" * 12, text)
 
+# Function to redact addresses
 def redact_addresses(text):
     # Apply SpaCy NER for GPE, LOC, FAC (geopolitical entities, locations, facilities)
     doc = nlp(text)
     redacted_text = []
-    for token in doc:
-        if token.ent_type_ in ["GPE", "LOC", "FAC"]:
+    
+    # Iterate through the tokens and redact addresses
+    for i, token in enumerate(doc):
+        # Check for address-like patterns (numbers followed by a GPE)
+        if token.ent_type_ in ["GPE", "LOC", "FAC"] and i > 0 and doc[i-1].like_num:
+            redacted_text[-1] = "█" * len(doc[i-1].text)  # Redact the number part
+            redacted_text.append("█" * len(token.text))    # Redact the place name
+        elif token.ent_type_ in ["GPE", "LOC", "FAC"]:
             redacted_text.append("█" * len(token.text))
         else:
             redacted_text.append(token.text)
+
     text = " ".join(redacted_text)
 
     # Regex patterns to capture different parts of an address
@@ -59,13 +72,24 @@ def redact_addresses(text):
     return text
 
 
-# Function to redact concepts based on keywords
-def redact_concept(text, concept_keywords):
-    for keyword in concept_keywords:
-        text = re.sub(rf'\b{keyword}\b', '█' * len(keyword), text, flags=re.IGNORECASE)
-    return text
+# Function to redact the part before '@' in email addresses
+def redact_email_usernames(text):
+    # Regular expression to match email addresses
+    email_pattern = re.compile(r'(\b)([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b)')
+    # Replace the username part with redacted characters
+    return email_pattern.sub(lambda m: m.group(1) + '█' * len(m.group(2)) + '@' + m.group(3), text)
 
-# Function to process and redact file
+# Function to redact concepts by redacting entire sentences containing concept keywords
+def redact_concept(text, concept_keywords):
+    doc = nlp(text)
+    redacted_text = []
+    for sent in doc.sents:  # Process sentences
+        if any(keyword.lower() in sent.text.lower() for keyword in concept_keywords):
+            redacted_text.append("█" * len(sent.text))
+        else:
+            redacted_text.append(sent.text)
+    return " ".join(redacted_text)
+
 # Function to process and redact file
 def process_file(input_file, output_dir, redact_flags, concepts):
     with open(input_file, 'r') as f:
@@ -73,16 +97,21 @@ def process_file(input_file, output_dir, redact_flags, concepts):
     
     doc = nlp(text)
 
-    # Redact based on the specified flags
+    # Redact based on the specified flags, updating doc after each step
     if redact_flags['names']:
         text = redact_names(doc)
+        doc = nlp(text)  # Re-parse the text to update the document object
     if redact_flags['dates']:
-        text = redact_dates(nlp(text))
+        text = redact_dates(doc)
+        doc = nlp(text)  # Re-parse after dates redaction
     if redact_flags['phones']:
-        text = redact_phones(text)
+        text = redact_phones(text)  # Phone numbers work directly on the text
     if redact_flags['address']:
-        text = redact_addresses(text)  # Using the updated redact_addresses function
-    
+        text = redact_addresses(text)  # Redact addresses
+    if redact_flags['email']:
+        text = redact_email_usernames(text)  # Redact email usernames
+
+    # Apply concept redaction
     if concepts:
         text = redact_concept(text, concepts)
 
@@ -96,16 +125,16 @@ def process_file(input_file, output_dir, redact_flags, concepts):
     with open(output_file, 'w') as f:
         f.write(text)
 
-
 # Argument parser for command-line flags
 def main():
     parser = argparse.ArgumentParser(description="Redact sensitive information from text files.")
     parser.add_argument('--input', required=True, action='append', help="Input text files (glob pattern allowed).")
     parser.add_argument('--output', required=True, help="Directory to store censored files.")
-    parser.add_argument('--names', action='store_true', help="Redact names.")
+    parser.add_argument('--names', action='store_true', help="Redact names and print identified names.")
     parser.add_argument('--dates', action='store_true', help="Redact dates.")
     parser.add_argument('--phones', action='store_true', help="Redact phone numbers.")
     parser.add_argument('--address', action='store_true', help="Redact addresses.")
+    parser.add_argument('--email', action='store_true', help="Redact email usernames.")  # Added email flag
     parser.add_argument('--concept', action='append', help="Redact sentences related to specified concepts.")
     parser.add_argument('--stats', help="Output statistics to a file or stderr/stdout.")
 
@@ -116,7 +145,8 @@ def main():
         'names': args.names,
         'dates': args.dates,
         'phones': args.phones,
-        'address': args.address
+        'address': args.address,
+        'email': args.email  # Email redaction added to flags
     }
 
     concepts = args.concept if args.concept else []
@@ -124,12 +154,13 @@ def main():
     # Process each input file
     for input_pattern in args.input:
         for input_file in glob(input_pattern):
-            try:
-                process_file(input_file, args.output, redact_flags, concepts)
-            except Exception as e:
-                print(f"Error processing file {input_file}: {e}")
+            if input_file.endswith('.txt'):  # Process only .txt files
+                try:
+                    process_file(input_file, args.output, redact_flags, concepts)
+                except Exception as e:
+                    print(f"Error processing file {input_file}: {e}")
 
-    # Generate and output statistics (you can expand this with more detailed stats)
+    # Generate and output statistics (basic example, can be expanded)
     if args.stats:
         stats_output = f"Files processed: {len(args.input)}"
         if args.stats == 'stderr':
