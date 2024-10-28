@@ -79,20 +79,53 @@ def redact_email_usernames(text):
     # Replace the username part with redacted characters
     return email_pattern.sub(lambda m: m.group(1) + '█' * len(m.group(2)) + '@' + m.group(3), text)
 
-# Function to redact concepts by redacting entire sentences containing concept keywords
+
+import nltk
+try:
+    from nltk.corpus import wordnet
+except LookupError:
+    nltk.download('wordnet')
+    from nltk.corpus import wordnet
+
+# Enhanced function to get synonyms, including hypernyms, hyponyms, and related terms for broader coverage
+def get_synonyms(keywords):
+    synonyms = set()
+    for keyword in keywords:
+        for syn in wordnet.synsets(keyword):
+            for lemma in syn.lemmas():
+                synonyms.add(lemma.name().lower().replace('_', ' '))  # Add direct synonyms
+            for hypernym in syn.hypernyms():  # Add hypernyms
+                for lemma in hypernym.lemmas():
+                    synonyms.add(lemma.name().lower().replace('_', ' '))
+            for hyponym in syn.hyponyms():  # Add hyponyms
+                for lemma in hyponym.lemmas():
+                    synonyms.add(lemma.name().lower().replace('_', ' '))
+    return synonyms
+
+# Function to redact only sentences containing concept keywords or their synonyms
 def redact_concept(text, concept_keywords):
+    # Generate a list of synonyms for the concept keywords
+    synonyms = get_synonyms(concept_keywords)
+    keywords_set = set(map(str.lower, concept_keywords))  # Include original keywords as well
+    all_keywords = keywords_set | synonyms  # Union of keywords and their synonyms
+
     lines = text.splitlines()  # Split text by lines
     redacted_text = []
     for line in lines:
         doc = nlp(line)  # Process each line separately with SpaCy
         redacted_line = []
         for sent in doc.sents:  # Process each sentence in the line
-            if any(keyword.lower() in sent.text.lower() for keyword in concept_keywords):
-                redacted_line.append("█" * len(sent.text))
+            # Check if any keyword or synonym is present in the sentence
+            if any(keyword in sent.text.lower() for keyword in all_keywords):
+                # Redact only the sentence with the keyword or synonym, preserving sentence boundary
+                redacted_line.append("█" * len(sent.text) + ".")
             else:
-                redacted_line.append(sent.text)
-        redacted_text.append(" ".join(redacted_line))
-    return "\n".join(redacted_text)  # Rejoin lines with newline characters
+                redacted_line.append(sent.text)  # Keep sentences without the keyword or synonym
+        redacted_text.append(" ".join(redacted_line))  # Join sentences back into the line
+    return "\n".join(redacted_text)  # Rejoin lines with newline characters for paragraph breaks
+
+
+
 
 # Function to process and redact file
 def process_file(input_file, output_dir, redact_flags, concepts):
