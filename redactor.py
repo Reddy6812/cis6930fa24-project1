@@ -5,12 +5,14 @@ import sys
 import argparse
 from glob import glob
 from warnings import filterwarnings
+import en_core_web_trf
 
 # Silencing warnings from SpaCy
 filterwarnings('ignore')
 
 # Load the transformer-based SpaCy model
-nlp = spacy.load('en_core_web_trf')
+#nlp = spacy.load('en_core_web_trf')
+nlp = en_core_web_trf.load()
 
 # Function to redact names and print identified names
 def redact_names(doc):
