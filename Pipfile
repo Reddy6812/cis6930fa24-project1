@@ -13,3 +13,4 @@ python_version = "3.12"
 en-core-web-trf = {file = "https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl"}
 spacy = "*"
 nltk = "*"
+scikit-learn = "*"

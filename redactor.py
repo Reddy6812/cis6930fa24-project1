@@ -80,25 +80,19 @@ def redact_email_usernames(text):
     return email_pattern.sub(lambda m: m.group(1) + '█' * len(m.group(2)) + '@' + m.group(3), text)
 
 
-import nltk
-try:
-    from nltk.corpus import wordnet
-except LookupError:
-    nltk.download('wordnet')
-    from nltk.corpus import wordnet
 
-# Enhanced function to get synonyms, including hypernyms, hyponyms, and related terms for broader coverage
+import nltk
+from nltk.corpus import wordnet
+
+# Enhanced function to get synonyms, including hypernyms and related terms for broader coverage
 def get_synonyms(keywords):
     synonyms = set()
     for keyword in keywords:
         for syn in wordnet.synsets(keyword):
             for lemma in syn.lemmas():
                 synonyms.add(lemma.name().lower().replace('_', ' '))  # Add direct synonyms
-            for hypernym in syn.hypernyms():  # Add hypernyms
+            for hypernym in syn.hypernyms():  # Add hypernyms for broader coverage
                 for lemma in hypernym.lemmas():
-                    synonyms.add(lemma.name().lower().replace('_', ' '))
-            for hyponym in syn.hyponyms():  # Add hyponyms
-                for lemma in hyponym.lemmas():
                     synonyms.add(lemma.name().lower().replace('_', ' '))
     return synonyms
 
@@ -117,12 +111,16 @@ def redact_concept(text, concept_keywords):
         for sent in doc.sents:  # Process each sentence in the line
             # Check if any keyword or synonym is present in the sentence
             if any(keyword in sent.text.lower() for keyword in all_keywords):
-                # Redact only the sentence with the keyword or synonym, preserving sentence boundary
-                redacted_line.append("█" * len(sent.text) + ".")
+                # Preserve original punctuation by conditionally adding a period
+                redacted_content = "█" * len(sent.text.rstrip('.'))
+                if sent.text.endswith('.'):
+                    redacted_content += '.'
+                redacted_line.append(redacted_content)
             else:
                 redacted_line.append(sent.text)  # Keep sentences without the keyword or synonym
         redacted_text.append(" ".join(redacted_line))  # Join sentences back into the line
     return "\n".join(redacted_text)  # Rejoin lines with newline characters for paragraph breaks
+
 
 
 
