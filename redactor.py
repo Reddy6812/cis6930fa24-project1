@@ -39,7 +39,7 @@ def redact_dates(doc):
 
 # Function to redact phone numbers
 def redact_phones(text):
-    phone_pattern = re.compile(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}')
+    phone_pattern = re.compile(r'\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
     return phone_pattern.sub("█" * 12, text)
 
 # Function to redact addresses
@@ -81,14 +81,18 @@ def redact_email_usernames(text):
 
 # Function to redact concepts by redacting entire sentences containing concept keywords
 def redact_concept(text, concept_keywords):
-    doc = nlp(text)
+    lines = text.splitlines()  # Split text by lines
     redacted_text = []
-    for sent in doc.sents:  # Process sentences
-        if any(keyword.lower() in sent.text.lower() for keyword in concept_keywords):
-            redacted_text.append("█" * len(sent.text))
-        else:
-            redacted_text.append(sent.text)
-    return " ".join(redacted_text)
+    for line in lines:
+        doc = nlp(line)  # Process each line separately with SpaCy
+        redacted_line = []
+        for sent in doc.sents:  # Process each sentence in the line
+            if any(keyword.lower() in sent.text.lower() for keyword in concept_keywords):
+                redacted_line.append("█" * len(sent.text))
+            else:
+                redacted_line.append(sent.text)
+        redacted_text.append(" ".join(redacted_line))
+    return "\n".join(redacted_text)  # Rejoin lines with newline characters
 
 # Function to process and redact file
 def process_file(input_file, output_dir, redact_flags, concepts):
