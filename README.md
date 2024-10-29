@@ -106,7 +106,7 @@ Censored Items:
 
 ---
 
-## Challenges
+## Challenges and issues
 
 1. **Identifying Last Names in Emails**: Detecting complex names within email usernames can be inconsistent.
 2. **Flat/Suite Address Redaction**: Limited handling of unit numbers in addresses.
