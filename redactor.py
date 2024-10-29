@@ -17,16 +17,11 @@ nlp = en_core_web_trf.load()
 
 
 
-import re
-
 # Function to redact names, including names in email addresses
 def redact_names(doc):
     redacted_text = []
     identified_names = []  # List to collect identified names
     email_pattern = re.compile(r'(\b)([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b)', re.IGNORECASE)
-    
-    # List of common names to check for in email usernames
-    known_names = ["john", "jane", "alice", "robert", "sarah", "michael", "nancy", "kevin"]
     
     for token in doc:
         # Check for regular names
@@ -41,11 +36,11 @@ def redact_names(doc):
                 
                 # Check if username contains identifiable names
                 redacted_username = username
-                for name in known_names:
-                    if name.lower() in username.lower():
+                for name_token in doc.ents:
+                    if name_token.ent_type_ == "PERSON" and name_token.text.lower() in username.lower():
                         # Redact the name portion within the email
-                        redacted_username = redacted_username.replace(name, "█" * len(name))
-                        identified_names.append(name)
+                        redacted_username = redacted_username.replace(name_token.text, "█" * len(name_token.text))
+                        identified_names.append(name_token.text)
 
                 # Construct the redacted email with the (possibly) modified username
                 redacted_email = f"{redacted_username}@{domain}"
@@ -59,7 +54,6 @@ def redact_names(doc):
         print(f"Identified names: {', '.join(identified_names)}")
     
     return " ".join(redacted_text)
-
 
 
 
@@ -126,12 +120,13 @@ def redact_email_usernames(text):
 
 import nltk
 from nltk.corpus import wordnet
+'''
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('maxent_ne_chunker')
 nltk.download('words')
 nltk.download('wordnet')
-
+'''
 
 # Enhanced function to get synonyms, including hypernyms and related terms for broader coverage
 def get_synonyms(keywords):
