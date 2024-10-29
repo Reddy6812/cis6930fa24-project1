@@ -84,8 +84,11 @@ def redact_email_usernames(text):
 
 
 import nltk
-from nltk.corpus import wordnet
-
+try:
+    from nltk.corpus import wordnet
+except LookupError:
+    nltk.download('wordnet')
+    from nltk.corpus import wordnet
 # Enhanced function to get synonyms, including hypernyms and related terms for broader coverage
 def get_synonyms(keywords):
     synonyms = set()
