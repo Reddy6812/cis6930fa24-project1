@@ -120,13 +120,11 @@ def redact_email_usernames(text):
 
 import nltk
 from nltk.corpus import wordnet
-'''
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('maxent_ne_chunker')
 nltk.download('words')
 nltk.download('wordnet')
-'''
 
 # Enhanced function to get synonyms, including hypernyms and related terms for broader coverage
 def get_synonyms(keywords):
