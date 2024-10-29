@@ -29,6 +29,9 @@ def redact_names(doc):
         print(f"Identified names: {', '.join(identified_names)}")
     return " ".join(redacted_text)
 
+
+
+
 # Function to redact dates
 def redact_dates(doc):
     redacted_text = []
@@ -39,21 +42,26 @@ def redact_dates(doc):
             redacted_text.append(token.text)
     return " ".join(redacted_text)
 
+
 # Function to redact phone numbers
 def redact_phones(text):
     phone_pattern = re.compile(r'\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
     return phone_pattern.sub("█" * 12, text)
+
+
+
 
 # Function to redact addresses
 def redact_addresses(text):
     # Apply SpaCy NER for GPE, LOC, FAC (geopolitical entities, locations, facilities)
     doc = nlp(text)
     redacted_text = []
-    
+
     # Iterate through the tokens and redact addresses
     for i, token in enumerate(doc):
-        # Check for address-like patterns (numbers followed by a GPE)
+        # Check for address-like patterns (numbers followed by a GPE, LOC, or FAC entity)
         if token.ent_type_ in ["GPE", "LOC", "FAC"] and i > 0 and doc[i-1].like_num:
+            # Redact the number and place name for address components
             redacted_text[-1] = "█" * len(doc[i-1].text)  # Redact the number part
             redacted_text.append("█" * len(token.text))    # Redact the place name
         elif token.ent_type_ in ["GPE", "LOC", "FAC"]:
@@ -61,18 +69,20 @@ def redact_addresses(text):
         else:
             redacted_text.append(token.text)
 
+    # Join the tokenized text after initial redaction
     text = " ".join(redacted_text)
 
-    # Regex patterns to capture different parts of an address
-    street_pattern = r'\d{1,5}\s+\w+(\s\w+){0,2}\s+(Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr)\b'
+    # Extended regex patterns for address parts
+    street_pattern = r'\d{1,5}\s+\w+(\s\w+){0,2}\s+(Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Plaza|Pl)\b'
+    unit_pattern = r'\b(Apt|Apartment|Suite|Ste|Floor|Unit|Fl|Rm)\s*\d*[A-Za-z]?\b'
     zip_code_pattern = r'\b\d{5}(?:-\d{4})?\b'  # Matches ZIP code (e.g., 62704 or 62704-1234)
 
-    # Apply the regex patterns
-    text = re.sub(street_pattern, '█' * 20, text)  # Redact street address
-    text = re.sub(zip_code_pattern, '█' * 5, text)  # Redact ZIP code
+    # Apply the regex patterns for street, unit, and ZIP code redactions
+    text = re.sub(street_pattern, '█' * 20, text)     # Redact street address
+    text = re.sub(unit_pattern, '█' * 10, text)       # Redact apartment/unit details
+    text = re.sub(zip_code_pattern, '█' * 5, text)    # Redact ZIP code
 
     return text
-
 
 # Function to redact the part before '@' in email addresses
 def redact_email_usernames(text):
@@ -84,11 +94,14 @@ def redact_email_usernames(text):
 
 
 import nltk
-try:
-    from nltk.corpus import wordnet
-except LookupError:
-    nltk.download('wordnet')
-    from nltk.corpus import wordnet
+from nltk.corpus import wordnet
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('maxent_ne_chunker')
+nltk.download('words')
+nltk.download('wordnet')
+
+
 # Enhanced function to get synonyms, including hypernyms and related terms for broader coverage
 def get_synonyms(keywords):
     synonyms = set()
