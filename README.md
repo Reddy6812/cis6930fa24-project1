@@ -84,9 +84,9 @@ Using `--concept prison`, sentences with terms like "jail" or "incarcerated" are
 ## Stats
 
 The `--stats` flag generates a summary of redaction processes for each file, showing:
+
 - **Types and Counts**: Number of each type of redacted item.
-- **Censored Locations**: Beginning and ending index of each censored term.
-- **File Summary**: Total redactions per file.
+- **File Summary**: Total (tokens)redactions per file.
 
 #### Example Stats Output:
 ```plaintext
@@ -96,11 +96,8 @@ Redacted File: docs/sample.txt
 - Phones: 3
 - Addresses: 1
 - Concept (kids): 4
+- Total tokens: 15
 
-Censored Items:
-1. Name at [5-15]
-2. Phone at [50-62]
-3. Concept 'kids' at [120-155]
 ...
 ```
 
