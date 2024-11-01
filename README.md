@@ -86,7 +86,7 @@ Using `--concept prison`, sentences with terms like "jail" or "incarcerated" are
 The `--stats` flag generates a summary of redaction processes for each file, showing:
 
 - **Types and Counts**: Number of each type of redacted item.
-- **File Summary**: Total (tokens)redactions per file.
+- **File Summary**: Total (tokens)redactions per file. but for concepts, it will be counted as number of sentences redacted
 
 #### Example Stats Output:
 ```plaintext
