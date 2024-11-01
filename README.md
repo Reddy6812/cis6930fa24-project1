@@ -31,7 +31,7 @@ Redactor is a tool to automatically find and hide sensitive information in text 
 Run the redactor using this command:
 
 ```bash
-pipenv run python redactor.py --input '*.txt' --names --dates --phones --address --concept 'concept_keyword' --output 'output_directory/' --stats stderr
+pipenv run python redactor.py --input '*.txt' --names --dates --phones --address --concept 'concept_keyword' --output 'output_directory/' --stats "path/"
 ```
 
 ---
