@@ -13,33 +13,41 @@ filterwarnings('ignore')
 # Load the transformer-based SpaCy model
 #nlp = spacy.load('en_core_web_trf')
 nlp = en_core_web_trf.load()
-
+namecount=0
+conceptcount=0
+datecount=0
+addresscount=0
+phonecount=0
 
 
 
 # Function to redact names, including names in email addresses
+
 def redact_names(doc):
     redacted_text = []
     identified_names = []  # List to collect identified names
+    global namecount
     email_pattern = re.compile(r'(\b)([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b)', re.IGNORECASE)
-    
+
     for token in doc:
         # Check for regular names
         if token.ent_type_ == "PERSON":
             redacted_text.append("█" * len(token.text))  # Replace with block characters
+            namecount +=1
             identified_names.append(token.text)  # Collect identified names
         else:
             # Check for email pattern
             match = email_pattern.search(token.text)
             if match:
                 username, domain = match.group(2), match.group(3)
-                
+
                 # Check if username contains identifiable names
                 redacted_username = username
                 for name_token in doc.ents:
-                    if name_token.ent_type_ == "PERSON" and name_token.text.lower() in username.lower():
+                    if name_token.label_ == "PERSON" and name_token.text.lower() in username.lower():
                         # Redact the name portion within the email
                         redacted_username = redacted_username.replace(name_token.text, "█" * len(name_token.text))
+                        namecount +=1
                         identified_names.append(name_token.text)
 
                 # Construct the redacted email with the (possibly) modified username
@@ -52,17 +60,19 @@ def redact_names(doc):
     # Print all identified names
     if identified_names:
         print(f"Identified names: {', '.join(identified_names)}")
-    
-    return " ".join(redacted_text)
 
+    return " ".join(redacted_text)
 
 
 # Function to redact dates
 def redact_dates(doc):
     redacted_text = []
+    global datecount
     for token in doc:
         if token.ent_type_ == "DATE":
+            #print(count(token.text))
             redacted_text.append("█" * len(token.text))
+            datecount +=1
         else:
             redacted_text.append(token.text)
     return " ".join(redacted_text)
@@ -70,7 +80,9 @@ def redact_dates(doc):
 
 # Function to redact phone numbers
 def redact_phones(text):
+    global phonecount
     phone_pattern = re.compile(r'\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
+    phonecount +=1
     return phone_pattern.sub("█" * 12, text)
 
 
@@ -79,6 +91,7 @@ def redact_phones(text):
 # Function to redact addresses
 def redact_addresses(text):
     # Apply SpaCy NER for GPE, LOC, FAC (geopolitical entities, locations, facilities)
+    global addresscount
     doc = nlp(text)
     redacted_text = []
 
@@ -88,9 +101,11 @@ def redact_addresses(text):
         if token.ent_type_ in ["GPE", "LOC", "FAC"] and i > 0 and doc[i-1].like_num:
             # Redact the number and place name for address components
             redacted_text[-1] = "█" * len(doc[i-1].text)  # Redact the number part
+            addresscount +=1
             redacted_text.append("█" * len(token.text))    # Redact the place name
         elif token.ent_type_ in ["GPE", "LOC", "FAC"]:
             redacted_text.append("█" * len(token.text))
+            addresscount +=1
         else:
             redacted_text.append(token.text)
 
@@ -120,12 +135,13 @@ def redact_email_usernames(text):
 
 import nltk
 from nltk.corpus import wordnet
+'''
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 nltk.download('maxent_ne_chunker')
 nltk.download('words')
 nltk.download('wordnet')
-
+'''
 # Enhanced function to get synonyms, including hypernyms and related terms for broader coverage
 def get_synonyms(keywords):
     synonyms = set()
@@ -144,6 +160,7 @@ def redact_concept(text, concept_keywords):
     synonyms = get_synonyms(concept_keywords)
     keywords_set = set(map(str.lower, concept_keywords))  # Include original keywords as well
     all_keywords = keywords_set | synonyms  # Union of keywords and their synonyms
+    global conceptcount
 
     lines = text.splitlines()  # Split text by lines
     redacted_text = []
@@ -154,6 +171,7 @@ def redact_concept(text, concept_keywords):
             # Check if any keyword or synonym is present in the sentence
             if any(keyword in sent.text.lower() for keyword in all_keywords):
                 # Preserve original punctuation by conditionally adding a period
+                conceptcount +=1
                 redacted_content = "█" * len(sent.text.rstrip('.'))
                 if sent.text.endswith('.'):
                     redacted_content += '.'
@@ -203,6 +221,7 @@ def process_file(input_file, output_dir, redact_flags, concepts):
         f.write(text)
 
 # Argument parser for command-line flags
+
 def main():
     parser = argparse.ArgumentParser(description="Redact sensitive information from text files.")
     parser.add_argument('--input', required=True, action='append', help="Input text files (glob pattern allowed).")
@@ -211,7 +230,7 @@ def main():
     parser.add_argument('--dates', action='store_true', help="Redact dates.")
     parser.add_argument('--phones', action='store_true', help="Redact phone numbers.")
     parser.add_argument('--address', action='store_true', help="Redact addresses.")
-    parser.add_argument('--email', action='store_true', help="Redact email usernames.")  # Added email flag
+    parser.add_argument('--email', action='store_true', help="Redact email usernames.")
     parser.add_argument('--concept', action='append', help="Redact sentences related to specified concepts.")
     parser.add_argument('--stats', help="Output statistics to a file or stderr/stdout.")
 
@@ -223,7 +242,7 @@ def main():
         'dates': args.dates,
         'phones': args.phones,
         'address': args.address,
-        'email': args.email  # Email redaction added to flags
+        'email': args.email
     }
 
     concepts = args.concept if args.concept else []
@@ -235,18 +254,30 @@ def main():
                 try:
                     process_file(input_file, args.output, redact_flags, concepts)
                 except Exception as e:
-                    print(f"Error processing file {input_file}: {e}")
+                    print(f"Error processing file {input_file}: {e}", file=sys.stderr)
 
-    # Generate and output statistics (basic example, can be expanded)
+    # Generate statistics data
+    total_redacted = namecount + conceptcount + datecount + addresscount + phonecount
+    stats_data = (
+        f"Name count: {namecount}\n"
+        f"Concept count: {conceptcount}\n"
+        f"Date count: {datecount}\n"
+        f"Address count: {addresscount}\n"
+        f"Phone count: {phonecount}\n"
+        f"Total tokens redacted: {total_redacted}\n"
+        f"Files processed: {len(args.input)}"
+    )
+
+    # Output statistics based on the --stats argument
     if args.stats:
-        stats_output = f"Files processed: {len(args.input)}"
         if args.stats == 'stderr':
-            print(stats_output, file=sys.stderr)
+            print(stats_data, file=sys.stderr)
         elif args.stats == 'stdout':
-            print(stats_output)
+            print(stats_data)
         else:
+            # Write to a file if a path is provided in --stats
             with open(args.stats, 'w') as f:
-                f.write(stats_output)
+                f.write(stats_data)
 
 if __name__ == "__main__":
     main()
