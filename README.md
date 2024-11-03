@@ -87,6 +87,7 @@ The `--stats` flag generates a summary of redaction processes for each file, sho
 
 - **Types and Counts**: Number of each type of redacted item.
 - **File Summary**: Total (tokens)redactions per file. but for concepts, it will be counted as number of sentences redacted
+- **Output File**: --output is not required, if used stats
 
 #### Example Stats Output:
 ```plaintext
