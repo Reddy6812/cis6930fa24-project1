@@ -225,7 +225,7 @@ def process_file(input_file, output_dir, redact_flags, concepts):
 def main():
     parser = argparse.ArgumentParser(description="Redact sensitive information from text files.")
     parser.add_argument('--input', required=True, action='append', help="Input text files (glob pattern allowed).")
-    parser.add_argument('--output', required=True, help="Directory to store censored files.")
+    parser.add_argument('--output', help="Directory to store censored files.")
     parser.add_argument('--names', action='store_true', help="Redact names and print identified names.")
     parser.add_argument('--dates', action='store_true', help="Redact dates.")
     parser.add_argument('--phones', action='store_true', help="Redact phone numbers.")
