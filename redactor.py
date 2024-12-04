@@ -212,7 +212,8 @@ def process_file(input_file, output_dir, redact_flags, concepts):
 
     # Save redacted file with '.censored' extension
     relative_path = os.path.relpath(input_file, 'docs/')  # Assuming 'docs/' is the base folder for input files
-    output_file = os.path.join(output_dir, relative_path + '.censored')
+    print(relative_path)
+    output_file = os.path.join(output_dir, relative_path[relative_path.rfind('/')+1:] + '.censored')
 
     # Ensure output directory structure exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
